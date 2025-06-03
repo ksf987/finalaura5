@@ -204,7 +204,7 @@ const TaskItem = ({ task, collectionName, onUpdate }) => {
                     className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition-colors resize-none min-h-[100px]"
                   />
                   <div className="flex justify-end">
-                    <Button onClick={handleSaveText2} size="sm" className="bg-purple-600 hover:bg-purple-700">
+                    <Button onClick={handleSaveText2} size="sm" className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-700">
                       Save Notes
                     </Button>
                   </div>
