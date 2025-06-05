@@ -84,12 +84,12 @@ const TaskItem = ({ task, collectionName, onUpdate }) => {
   const handleNotDone = async () => {
     try {
       const auraDates = generateAuraDates(new Date(task.createdAt), new Date(task.endDate));
-      const currentDate = new Date();
+      const currentDate = new Date(task.currentDate);
       
       // Find the next aura date after the current date
       const nextAuraDate = auraDates.find(date => date > currentDate);
       
-      if (nextAuraDate) {
+      if (nextAuraDate && nextAuraDate <= new Date(task.endDate)) {
         const taskRef = doc(db, collectionName, task.id);
         await updateDoc(taskRef, { 
           currentDate: nextAuraDate.toISOString(),
