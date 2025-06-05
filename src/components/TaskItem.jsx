@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
@@ -164,13 +163,12 @@ const TaskItem = ({ task, collectionName, onUpdate }) => {
               />
               <div className="flex justify-end">
                 <Button 
-  onClick={handleSaveText} 
-  size="sm" 
-  className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-700"
->
-  Save Description
-</Button>
-
+                  onClick={handleSaveText} 
+                  size="sm" 
+                  className="bg-blue-600 hover:bg-blue-700 text-white border border-blue-700"
+                >
+                  Save Description
+                </Button>
               </div>
             </div>
           ) : (

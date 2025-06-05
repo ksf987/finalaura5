@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { generateAuraDates } from '../utils/auraCalculation';
 import DatePicker from '../components/DatePicker';
 import TaskItem from '../components/TaskItem';
-import { Plus, FolderPlus, Layout, Folder, CheckSquare, ArrowDown, Trash2 } from 'lucide-react';
+import { Plus, FolderPlus, Layout, Folder, CheckSquare, ArrowDown, Trash2, Calendar } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -20,6 +20,7 @@ const Index = () => {
   const [folderName, setFolderName] = useState('');
   const [editingFolder, setEditingFolder] = useState(null);
   const [lastEndDate, setLastEndDate] = useState(null);
+  const [todaysTasks, setTodaysTasks] = useState([]);
 
   useEffect(() => {
     const tasksQuery = query(collection(db, 'tasks'), orderBy('serialNumber'));
@@ -33,6 +34,16 @@ const Index = () => {
       if (tasksData.length > 0) {
         setLastEndDate(new Date(tasksData[tasksData.length - 1].endDate));
       }
+
+      // Update today's tasks
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todaysTasks = tasksData.filter(task => {
+        const taskDate = new Date(task.currentDate);
+        taskDate.setHours(0, 0, 0, 0);
+        return taskDate.getTime() === today.getTime();
+      });
+      setTodaysTasks(todaysTasks);
     });
 
     const foldersQuery = query(collection(db, 'folders'), orderBy('createdAt'));
@@ -50,39 +61,50 @@ const Index = () => {
     };
   }, []);
 
+  const updateTaskSerialNumbers = async () => {
+    const batch = writeBatch(db);
+    const tasksQuery = query(collection(db, 'tasks'), orderBy('serialNumber'));
+    const snapshot = await tasksQuery.get();
+    
+    snapshot.docs.forEach((doc, index) => {
+      const newSerialNumber = index + 1;
+      batch.update(doc.ref, { serialNumber: newSerialNumber });
+    });
+
+    await batch.commit();
+  };
+
   const handleAddTask = () => setShowDatePicker(true);
   const handleAddFolder = () => setShowFolderInput(true);
 
   const handleFolderSave = async (e) => {
-  e.preventDefault();
-  if (folderName.trim()) {
-    try {
-      if (editingFolder) {
-        // No need to check again if it exists — we already have the folder from state
-        const folderRef = doc(db, 'folders', editingFolder.id);
-        await updateDoc(folderRef, {
-          name: folderName.trim()
-        });
-      } else {
-        await addDoc(collection(db, 'folders'), {
-          name: folderName.trim(),
-          createdAt: new Date().toISOString()
+    e.preventDefault();
+    if (folderName.trim()) {
+      try {
+        if (editingFolder) {
+          const folderRef = doc(db, 'folders', editingFolder.id);
+          await updateDoc(folderRef, {
+            name: folderName.trim()
+          });
+        } else {
+          await addDoc(collection(db, 'folders'), {
+            name: folderName.trim(),
+            createdAt: new Date().toISOString()
+          });
+        }
+        setFolderName('');
+        setShowFolderInput(false);
+        setEditingFolder(null);
+      } catch (error) {
+        console.error('Error saving folder:', error);
+        toast({
+          title: "Error",
+          description: "Failed to save folder. Please try again.",
+          variant: "destructive"
         });
       }
-      setFolderName('');
-      setShowFolderInput(false);
-      setEditingFolder(null);
-    } catch (error) {
-      console.error('Error saving folder:', error);
-      toast({
-        title: "Error",
-        description: "Failed to save folder. Please try again.",
-        variant: "destructive"
-      });
     }
-  }
-};
-
+  };
 
   const handleDeleteFolder = async (folderId, e) => {
     e.stopPropagation();
@@ -117,6 +139,11 @@ const Index = () => {
     } catch (error) {
       console.error('Error adding task:', error);
     }
+  };
+
+  const handleTaskUpdate = async () => {
+    await updateTaskSerialNumbers();
+    setTasks(prev => [...prev]);
   };
 
   const scrollToBottom = () => {
@@ -171,7 +198,7 @@ const Index = () => {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center space-x-3">
@@ -213,6 +240,26 @@ const Index = () => {
               </div>
             </CardContent>
           </Card>
+
+          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+            <CardContent className="p-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-3 bg-amber-500/20 rounded-lg">
+                  <Calendar className="w-6 h-6 text-amber-400" />
+                </div>
+                <div>
+                  <p className="text-slate-400 text-sm">Today's Tasks</p>
+                  <div className="text-sm text-amber-300 mt-1">
+                    {todaysTasks.length > 0 ? (
+                      todaysTasks.map(task => `#${task.serialNumber}`).join(', ')
+                    ) : (
+                      <span className="text-slate-400">No tasks for today</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Content Sections */}
@@ -235,7 +282,7 @@ const Index = () => {
                     key={task.id} 
                     task={task} 
                     collectionName="tasks"
-                    onUpdate={() => setTasks(prev => [...prev])}
+                    onUpdate={handleTaskUpdate}
                   />
                 ))}
               </div>
