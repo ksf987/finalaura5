@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { generateAuraDates, formatDate } from '../utils/auraCalculation';
@@ -83,16 +83,20 @@ const TaskItem = ({ task, collectionName, onUpdate }) => {
 
   const handleNotDone = async () => {
     try {
-      const auraDates = generateAuraDates(new Date(), new Date(task.endDate));
-      const currentIndex = task.currentAuraIndex || 0;
-      const newIndex = Math.min(currentIndex + 1, auraDates.length - 1);
+      const auraDates = generateAuraDates(new Date(task.createdAt), new Date(task.endDate));
+      const currentDate = new Date();
       
-      const taskRef = doc(db, collectionName, task.id);
-      await updateDoc(taskRef, { 
-        currentAuraIndex: newIndex,
-        currentDate: auraDates[newIndex].toISOString()
-      });
-      onUpdate();
+      // Find the next aura date after the current date
+      const nextAuraDate = auraDates.find(date => date > currentDate);
+      
+      if (nextAuraDate) {
+        const taskRef = doc(db, collectionName, task.id);
+        await updateDoc(taskRef, { 
+          currentDate: nextAuraDate.toISOString(),
+          lastUpdated: new Date().toISOString()
+        });
+        onUpdate();
+      }
     } catch (error) {
       console.error('Error updating task:', error);
     }
@@ -107,10 +111,38 @@ const TaskItem = ({ task, collectionName, onUpdate }) => {
     }
   };
 
+  useEffect(() => {
+    const updateCurrentDate = async () => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const taskDate = new Date(task.currentDate);
+      taskDate.setHours(0, 0, 0, 0);
+      
+      const createdDate = new Date(task.createdAt);
+      createdDate.setHours(0, 0, 0, 0);
+      
+      // Only update if:
+      // 1. Today is different from the task's current date
+      // 2. The task wasn't created today (to preserve initial aura date)
+      // 3. The task hasn't been updated today (to avoid overwriting user actions)
+      if (
+        today.getTime() !== taskDate.getTime() && 
+        today.getTime() !== createdDate.getTime() &&
+        (!task.lastUpdated || new Date(task.lastUpdated).getTime() !== today.getTime())
+      ) {
+        const taskRef = doc(db, collectionName, task.id);
+        await updateDoc(taskRef, { 
+          currentDate: today.toISOString()
+        });
+      }
+    };
+
+    updateCurrentDate();
+  }, [task, collectionName]);
+
   const getCurrentDate = () => {
-    const auraDates = generateAuraDates(new Date(), new Date(task.endDate));
-    const currentIndex = task.currentAuraIndex || 0;
-    return auraDates[Math.min(currentIndex + 1, auraDates.length - 1)];
+    return new Date(task.currentDate);
   };
 
   return (
