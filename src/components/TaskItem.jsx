@@ -85,26 +85,22 @@ const TaskItem = ({ task, collectionName, onUpdate }) => {
     try {
       const auraDates = generateAuraDates(new Date(task.createdAt), new Date(task.endDate));
       const currentDate = new Date(task.currentDate);
+      const today = new Date();
       
       // Set hours to 0 for accurate date comparison
       currentDate.setHours(0, 0, 0, 0);
-      const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
-      // Find the next aura date after the current date
-      let nextAuraDate = auraDates.find(date => {
-        const auraDate = new Date(date);
-        auraDate.setHours(0, 0, 0, 0);
-        return auraDate > currentDate;
-      });
 
-      // If current date is today and no next aura date is found, find the first aura date after today
-      if (currentDate.getTime() === today.getTime() && !nextAuraDate) {
-        nextAuraDate = auraDates.find(date => {
-          const auraDate = new Date(date);
-          auraDate.setHours(0, 0, 0, 0);
-          return auraDate > today;
-        });
+      // Find the next aura date that's strictly after the current date
+      let nextAuraDate = null;
+      for (let i = 0; i < auraDates.length; i++) {
+        const auraDate = new Date(auraDates[i]);
+        auraDate.setHours(0, 0, 0, 0);
+        
+        if (auraDate.getTime() > currentDate.getTime()) {
+          nextAuraDate = auraDate;
+          break;
+        }
       }
       
       if (nextAuraDate && nextAuraDate <= new Date(task.endDate)) {
