@@ -95,9 +95,17 @@ const TaskItem = ({ task, collectionName, onUpdate }) => {
       let nextAuraDate = auraDates.find(date => {
         const auraDate = new Date(date);
         auraDate.setHours(0, 0, 0, 0);
-        return auraDate > currentDate || 
-               (currentDate.getTime() === today.getTime() && auraDate > today);
+        return auraDate > currentDate;
       });
+
+      // If current date is today and no next aura date is found, find the first aura date after today
+      if (currentDate.getTime() === today.getTime() && !nextAuraDate) {
+        nextAuraDate = auraDates.find(date => {
+          const auraDate = new Date(date);
+          auraDate.setHours(0, 0, 0, 0);
+          return auraDate > today;
+        });
+      }
       
       if (nextAuraDate && nextAuraDate <= new Date(task.endDate)) {
         const taskRef = doc(db, collectionName, task.id);
