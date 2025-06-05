@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, addDoc, onSnapshot, query, orderBy, doc, updateDoc, deleteDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { generateAuraDates } from '../utils/auraCalculation';
 import DatePicker from '../components/DatePicker';
@@ -62,16 +62,27 @@ const Index = () => {
   }, []);
 
   const updateTaskSerialNumbers = async () => {
-    const batch = writeBatch(db);
-    const tasksQuery = query(collection(db, 'tasks'), orderBy('serialNumber'));
-    const snapshot = await tasksQuery.get();
-    
-    snapshot.docs.forEach((doc, index) => {
-      const newSerialNumber = index + 1;
-      batch.update(doc.ref, { serialNumber: newSerialNumber });
-    });
+    try {
+      const tasksQuery = query(collection(db, 'tasks'), orderBy('serialNumber'));
+      const querySnapshot = await getDocs(tasksQuery);
+      const batch = writeBatch(db);
+      
+      querySnapshot.docs.forEach((docSnapshot, index) => {
+        const newSerialNumber = index + 1;
+        batch.update(doc(db, 'tasks', docSnapshot.id), {
+          serialNumber: newSerialNumber
+        });
+      });
 
-    await batch.commit();
+      await batch.commit();
+    } catch (error) {
+      console.error('Error updating serial numbers:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update task numbers. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handleAddTask = () => setShowDatePicker(true);
@@ -121,7 +132,13 @@ const Index = () => {
     try {
       const today = new Date();
       const auraDates = generateAuraDates(today, endDate);
-      const serialNumber = tasks.length + 1;
+      
+      // Get the current highest serial number
+      const tasksQuery = query(collection(db, 'tasks'), orderBy('serialNumber', 'desc'));
+      const querySnapshot = await getDocs(tasksQuery);
+      const highestSerialNumber = querySnapshot.empty ? 0 : querySnapshot.docs[0].data().serialNumber;
+      
+      const serialNumber = highestSerialNumber + 1;
 
       await addDoc(collection(db, 'tasks'), {
         serialNumber,
@@ -138,12 +155,16 @@ const Index = () => {
       setLastEndDate(endDate);
     } catch (error) {
       console.error('Error adding task:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create task. Please try again.",
+        variant: "destructive"
+      });
     }
   };
 
   const handleTaskUpdate = async () => {
     await updateTaskSerialNumbers();
-    setTasks(prev => [...prev]);
   };
 
   const scrollToBottom = () => {
