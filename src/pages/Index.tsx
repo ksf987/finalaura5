@@ -148,7 +148,8 @@ const Index = () => {
         text1: '',
         image1: null,
         image2: null,
-        createdAt: new Date().toISOString()
+        createdAt: today.toISOString(),
+        lastUpdated: null
       });
 
       setShowDatePicker(false);
